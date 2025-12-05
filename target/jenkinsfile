@@ -2,92 +2,59 @@ pipeline {
     agent any
 
     tools {
-        maven 'M3'
-        jdk 'jdk17'   // si configuré dans Jenkins
+        maven "M2_HOME"
     }
 
     environment {
-        SONARQUBE_ENV = "SonarQube"     // nom du server Sonar dans Manage Jenkins
+        DOCKER_CREDENTIALS = credentials('dockerhub')
     }
 
     stages {
 
-        stage('Checkout Git') {
+        stage("Code Checkout") {
             steps {
-                git branch: 'main', url: 'https://github.com/sansgogu/avec-maven.git'
+                git branch: 'master',
+                    url: 'https://github.com/yass1120/avec-maven.git'
             }
         }
 
-        stage('Build & Unit Tests') {
+        // 🧪 Tests + JaCoCo (génère jacoco.xml)
+        stage('Code Test') {
             steps {
-                sh 'mvn -B clean test'
+                sh "mvn clean test jacoco:report"
             }
         }
 
-        stage('Code Quality - SonarQube') {
+        // 🔎 Analyse SonarQube (lit le rapport JaCoCo)
+        stage('Sonar Test') {
             steps {
-                script {
-                    withSonarQubeEnv(SONARQUBE_ENV) {
-                        sh '''
-                            mvn sonar:sonar \
-                            -Dsonar.projectKey=avec-maven \
-                            -Dsonar.projectName="avec-maven" \
-                            -Dsonar.projectVersion=1.0
-                        '''
-                    }
+                withSonarQubeEnv('SQ1') {
+                    sh "mvn sonar:sonar"
+                    // si tu veux : ajouter ici -Dsonar.projectKey=... -Dsonar.projectName=...
                 }
             }
         }
 
-        stage('Vérification Qualité (Quality Gate)') {
+        // 🏗 Build du jar (sans relancer les tests)
+        stage('Code Build') {
             steps {
-                script {
-                    timeout(time: 3, unit: 'MINUTES') {
-                        waitForQualityGate abortPipeline: true
-                    }
-                }
+                sh "mvn package -DskipTests"
             }
         }
 
-        stage('Packaging') {
+        // 🐳 Build de l'image Docker
+        stage('Docker Build') {
             steps {
-                sh 'mvn -B package -DskipTests'
+                sh "docker build -t yasmine2004/student-management:1.0 ."
             }
         }
 
-        stage('Analyse de couverture (JaCoCo)') {
+        // 🚀 Push de l'image sur Docker Hub
+        stage('Docker Push') {
             steps {
-                sh 'mvn jacoco:report'
+                sh 'echo $DOCKER_CREDENTIALS_PSW | docker login -u $DOCKER_CREDENTIALS_USR --password-stdin'
+                sh "docker push yasmine2004/student-management:1.0"
             }
-        }
-
-        stage('Archivage Artifacts') {
-            steps {
-                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
-            }
-        }
-
-        stage('Déploiement') {
-            when {
-                branch 'main'
-            }
-            steps {
-                echo "Déploiement sur le serveur…"
-                // Exemple : copie fichier vers serveur Linux
-                // sh "scp target/*.jar user@serveur:/deploy/"
-            }
-        }
-    }
-
-    post {
-        success {
-            echo '🏆 Pipeline exécuté avec succès !'
-        }
-        failure {
-            echo '❌ Pipeline échoué.'
-        }
-        always {
-            echo '📌 Pipeline terminé.'
         }
     }
 }

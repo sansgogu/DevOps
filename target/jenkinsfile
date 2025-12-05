@@ -3,32 +3,91 @@ pipeline {
 
     tools {
         maven 'M3'
+        jdk 'jdk17'   // si configuré dans Jenkins
+    }
+
+    environment {
+        SONARQUBE_ENV = "SonarQube"     // nom du server Sonar dans Manage Jenkins
     }
 
     stages {
-        stage('Récupération Git') {
+
+        stage('Checkout Git') {
             steps {
                 git branch: 'main', url: 'https://github.com/sansgogu/avec-maven.git'
             }
         }
 
-        stage('Build et Tests') {
+        stage('Build & Unit Tests') {
             steps {
-
-                sh 'mvn clean test'
+                sh 'mvn -B clean test'
             }
         }
 
-        stage('Package') {
+        stage('Code Quality - SonarQube') {
             steps {
-                sh 'mvn package -DskipTests'
+                script {
+                    withSonarQubeEnv(SONARQUBE_ENV) {
+                        sh '''
+                            mvn sonar:sonar \
+                            -Dsonar.projectKey=avec-maven \
+                            -Dsonar.projectName="avec-maven" \
+                            -Dsonar.projectVersion=1.0
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Vérification Qualité (Quality Gate)') {
+            steps {
+                script {
+                    timeout(time: 3, unit: 'MINUTES') {
+                        waitForQualityGate abortPipeline: true
+                    }
+                }
+            }
+        }
+
+        stage('Packaging') {
+            steps {
+                sh 'mvn -B package -DskipTests'
+            }
+        }
+
+        stage('Analyse de couverture (JaCoCo)') {
+            steps {
+                sh 'mvn jacoco:report'
+            }
+        }
+
+        stage('Archivage Artifacts') {
+            steps {
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+
+        stage('Déploiement') {
+            when {
+                branch 'main'
+            }
+            steps {
+                echo "Déploiement sur le serveur…"
+                // Exemple : copie fichier vers serveur Linux
+                // sh "scp target/*.jar user@serveur:/deploy/"
             }
         }
     }
 
     post {
+        success {
+            echo '🏆 Pipeline exécuté avec succès !'
+        }
+        failure {
+            echo '❌ Pipeline échoué.'
+        }
         always {
-            echo 'Build terminé - tests ignorés si échec'
+            echo '📌 Pipeline terminé.'
         }
     }
 }

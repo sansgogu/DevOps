@@ -1,16 +1,20 @@
 package tn.esprit.studentmanagement.services;
 
-import lombok.AllArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import tn.esprit.studentmanagement.repositories.EnrollmentRepository;
 import tn.esprit.studentmanagement.entities.Enrollment;
+
 import java.util.List;
 
 @Service
 public class EnrollmentService implements IEnrollment {
-    @Autowired
-    EnrollmentRepository enrollmentRepository;
+
+    private final EnrollmentRepository enrollmentRepository;
+
+    // ✔️ Injection par constructeur recommandée par SonarQube
+    public EnrollmentService(EnrollmentRepository enrollmentRepository) {
+        this.enrollmentRepository = enrollmentRepository;
+    }
 
     @Override
     public List<Enrollment> getAllEnrollments() {
@@ -19,7 +23,11 @@ public class EnrollmentService implements IEnrollment {
 
     @Override
     public Enrollment getEnrollmentById(Long idEnrollment) {
-        return enrollmentRepository.findById(idEnrollment).get();
+        // ✔️ plus de .get()
+        return enrollmentRepository.findById(idEnrollment)
+                .orElseThrow(() -> new RuntimeException(
+                        "Enrollment introuvable avec id = " + idEnrollment
+                ));
     }
 
     @Override
@@ -29,6 +37,6 @@ public class EnrollmentService implements IEnrollment {
 
     @Override
     public void deleteEnrollment(Long idEnrollment) {
-enrollmentRepository.deleteById(idEnrollment);
+        enrollmentRepository.deleteById(idEnrollment);
     }
 }

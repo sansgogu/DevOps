@@ -2,7 +2,6 @@ package tn.esprit.studentmanagement.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -12,11 +11,13 @@ import java.util.List;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@ToString
+@ToString(exclude = {"department", "enrollments"}) // 🌟 évite les boucles infinies
 public class Student {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idStudent;
+
     private String firstName;
     private String lastName;
     private String email;
@@ -25,8 +26,9 @@ public class Student {
     private String address;
 
     @ManyToOne
+    @JoinColumn(name = "department_id") // optionnel mais propre
     private Department department;
 
-    @OneToMany(mappedBy = "student")
+    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL)
     private List<Enrollment> enrollments;
 }

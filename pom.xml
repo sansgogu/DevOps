@@ -18,7 +18,6 @@
 
     <properties>
         <java.version>17</java.version>
-
         <!-- IMPORTANT : chemin du rapport JaCoCo pour SonarQube -->
         <sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
     </properties>
@@ -57,7 +56,7 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- ✅ Mockito pour JUnit 5 (tes tests de service) -->
+        <!-- Mockito pour JUnit 5 -->
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
@@ -71,12 +70,19 @@
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>2.1.0</version>
         </dependency>
+
+        <!-- ✅ H2 pour les tests (base en mémoire) -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
 
-            <!-- ✅ Plugin JaCoCo pour la couverture de tests -->
+            <!-- Plugin JaCoCo pour la couverture de tests -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>

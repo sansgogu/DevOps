@@ -14,7 +14,7 @@ pipeline {
         stage("Code Checkout") {
             steps {
                 git branch: 'master',
-                    url: 'https://github.com/yass1120/avec-maven.git'
+                    url: 'https://github.com/sansgogu/DevOps.git'
             }
         }
 

@@ -1,11 +1,11 @@
 pipeline {
     agent any
 
-    tools {
-        maven "M2_HOME"
-    }
+    // ⚠️ On enlève tools{} pour ne plus avoir d'erreur Maven
+    // tools { maven "M2_HOME" }
 
     environment {
+        // Injecte les credentials Docker Hub (ID = 'dockerhub')
         DOCKER_CREDENTIALS = credentials('dockerhub')
     }
 
@@ -18,19 +18,22 @@ pipeline {
             }
         }
 
-        // 🧪 Tests + JaCoCo (génère jacoco.xml)
+        // 🧪 Tests + JaCoCo (génère le rapport de couverture)
         stage('Code Test') {
             steps {
                 sh "mvn clean test jacoco:report"
             }
         }
 
-        // 🔎 Analyse SonarQube (lit le rapport JaCoCo)
+        // 🔎 Analyse SonarQube
         stage('Sonar Test') {
             steps {
                 withSonarQubeEnv('SQ1') {
-                    sh "mvn sonar:sonar"
-                    // si tu veux : ajouter ici -Dsonar.projectKey=... -Dsonar.projectName=...
+                    sh """
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=student-management \
+                          -Dsonar.projectName=student-management
+                    """
                 }
             }
         }
@@ -45,7 +48,7 @@ pipeline {
         // 🐳 Build de l'image Docker
         stage('Docker Build') {
             steps {
-                sh "docker build -t yasmine2004/student-management:1.0 ."
+                sh "docker build -t aymen/student-management:${BUILD_NUMBER} ."
             }
         }
 
@@ -53,8 +56,17 @@ pipeline {
         stage('Docker Push') {
             steps {
                 sh 'echo $DOCKER_CREDENTIALS_PSW | docker login -u $DOCKER_CREDENTIALS_USR --password-stdin'
-                sh "docker push yasmine2004/student-management:1.0"
+                sh "docker push aymen/student-management:${BUILD_NUMBER}"
             }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Pipeline terminé avec succès (build #${BUILD_NUMBER})"
+        }
+        failure {
+            echo "❌ Pipeline en échec (build #${BUILD_NUMBER})"
         }
     }
 }

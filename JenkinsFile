@@ -1,0 +1,72 @@
+xpipeline {
+    agent any
+
+    // ⚠️ On enlève tools{} pour ne plus avoir d'erreur Maven
+    // tools { maven "M2_HOME" }
+
+    environment {
+        // Injecte les credentials Docker Hub (ID = 'dockerhub')
+        DOCKER_CREDENTIALS = credentials('dockerhub')
+    }
+
+    stages {
+
+        stage("Code Checkout") {
+            steps {
+                git branch: 'master',
+                    url: 'https://github.com/sansgogu/DevOps.git'
+            }
+        }
+
+        // 🧪 Tests + JaCoCo (génère le rapport de couverture)
+        stage('Code Test') {
+            steps {
+                sh "mvn clean test jacoco:report"
+            }
+        }
+
+        // 🔎 Analyse SonarQube
+        stage('Sonar Test') {
+            steps {
+                withSonarQubeEnv('SQ1') {
+                    sh """
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=student-management \
+                          -Dsonar.projectName=student-management
+                    """
+                }
+            }
+        }
+
+        // 🏗 Build du jar (sans relancer les tests)
+        stage('Code Build') {
+            steps {
+                sh "mvn package -DskipTests"
+            }
+        }
+
+        // 🐳 Build de l'image Docker
+        stage('Docker Build') {
+            steps {
+                sh "docker build -t aymen/student-management:${BUILD_NUMBER} ."
+            }
+        }
+
+        // 🚀 Push de l'image sur Docker Hub
+        stage('Docker Push') {
+            steps {
+                sh 'echo $DOCKER_CREDENTIALS_PSW | docker login -u $DOCKER_CREDENTIALS_USR --password-stdin'
+                sh "docker push aymen/student-management:${BUILD_NUMBER}"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Pipeline terminé avec succès (build #${BUILD_NUMBER})"
+        }
+        failure {
+            echo "❌ Pipeline en échec (build #${BUILD_NUMBER})"
+        }
+    }
+}

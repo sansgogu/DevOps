@@ -1,72 +1,74 @@
-xpipeline {
+pipeline {
     agent any
 
-    // ⚠️ On enlève tools{} pour ne plus avoir d'erreur Maven
-    // tools { maven "M2_HOME" }
+    tools {
+        maven "M2_HOME"
+    }
 
     environment {
-        // Injecte les credentials Docker Hub (ID = 'dockerhub')
         DOCKER_CREDENTIALS = credentials('dockerhub')
+        K8S_NAMESPACE = 'devopss'
     }
 
     stages {
-
         stage("Code Checkout") {
             steps {
                 git branch: 'master',
-                    url: 'https://github.com/sansgogu/DevOps.git'
+                    url: 'https://github.com/yass1120/avec-maven.git'
             }
         }
 
-        // 🧪 Tests + JaCoCo (génère le rapport de couverture)
         stage('Code Test') {
             steps {
-                sh "mvn clean test jacoco:report"
+                sh "mvn test"
             }
         }
 
-        // 🔎 Analyse SonarQube
+        stage('Code Build') {
+            steps {
+                sh "mvn package"
+            }
+        }
+
         stage('Sonar Test') {
             steps {
                 withSonarQubeEnv('SQ1') {
-                    sh """
-                        mvn sonar:sonar \
-                          -Dsonar.projectKey=student-management \
-                          -Dsonar.projectName=student-management
-                    """
+                    sh "mvn sonar:sonar"
                 }
             }
         }
 
-        // 🏗 Build du jar (sans relancer les tests)
-        stage('Code Build') {
-            steps {
-                sh "mvn package -DskipTests"
-            }
-        }
-
-        // 🐳 Build de l'image Docker
         stage('Docker Build') {
             steps {
-                sh "docker build -t aymen/student-management:${BUILD_NUMBER} ."
+                script {
+                    sh "docker build -t yasmine2004/student-management:1.0 ."
+                }
             }
         }
 
-        // 🚀 Push de l'image sur Docker Hub
         stage('Docker Push') {
             steps {
-                sh 'echo $DOCKER_CREDENTIALS_PSW | docker login -u $DOCKER_CREDENTIALS_USR --password-stdin'
-                sh "docker push aymen/student-management:${BUILD_NUMBER}"
+                script {
+                    sh 'echo $DOCKER_CREDENTIALS_PSW | docker login -u $DOCKER_CREDENTIALS_USR --password-stdin'
+                    sh "docker push yasmine2004/student-management:1.0"
+                }
             }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    sh "kubectl apply -f k8s-deployment.yaml -n ${K8S_NAMESPACE}"
+                    sh "kubectl rollout status deployment/spring-app -n ${K8S_NAMESPACE}"
+                }
+            }
+        }
+    } // <-- closes stages
+
+    post {
+        always {
+            sh "kubectl get pods -n ${K8S_NAMESPACE}"
         }
     }
 
-    post {
-        success {
-            echo "✅ Pipeline terminé avec succès (build #${BUILD_NUMBER})"
-        }
-        failure {
-            echo "❌ Pipeline en échec (build #${BUILD_NUMBER})"
-        }
-    }
-}
+} // <-- closes pipeline
